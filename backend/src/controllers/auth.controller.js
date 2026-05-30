@@ -13,6 +13,10 @@ async function register(req, res) {
 
     const { name, email, password } = req.body;  
 
+    if(!name || !email || !password) {
+      return res.status(400).json({ msg: 'Please enter all fields' });
+    }
+
     let user = await usermodel.findOne({
       $or: [{ name }, { email }]
     });
@@ -53,7 +57,7 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await usermodel.findOne({ $or: [{ username }, { email }] });
+    const user = await usermodel.findOne({ email });
     if (!user) {
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
@@ -114,6 +118,7 @@ const getCurrentUser = async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 };
+
 module.exports = {
   register,
   login,
