@@ -136,20 +136,8 @@ npm start
 
 ---
 
-## 📄 License
-
-This project is open-source and available under the MIT License.
-
----
-
 ## ⭐ Show your support
 
 If you like this project, consider giving it a ⭐ on GitHub!
 
----
 
-If you want, I can also:
-
-* make it look **more “startup-level” (fancy landing README)**
-* add **badges + GIF demo section**
-* or tailor it exactly to your actual folder structure (just paste it)
