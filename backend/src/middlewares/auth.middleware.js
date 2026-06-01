@@ -1,22 +1,43 @@
-const jwt = require('jsonwebtoken');
-const blacklistModel = require('../models/blacklist.model');
-async function auth(req, res, next) {
-  const token = req.cookies.token;
-  if (!token) {
-    return res.status(401).json({ msg: 'No token provided' });
-  }
-  const istokenblacklisted = await blacklistModel.findOne({ token });
-  if (istokenblacklisted) {
-    return res.status(401).json({ msg: 'Token is blacklisted' });
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.jwt_secret);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ msg: 'Invalid token' });
-  }
+const jwt = require("jsonwebtoken")
+const tokenBlacklistModel = require("../models/blacklist.model")
+
+
+
+async function authUser(req, res, next) {
+
+    const token = req.cookies.token
+
+    if (!token) {
+        return res.status(401).json({
+            message: "Token not provided."
+        })
+    }
+
+    const isTokenBlacklisted = await tokenBlacklistModel.findOne({
+        token
+    })
+
+    if (isTokenBlacklisted) {
+        return res.status(401).json({
+            message: "token is invalid"
+        })
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+
+        req.user = decoded
+
+        next()
+
+    } catch (err) {
+
+        return res.status(401).json({
+            message: "Invalid token."
+        })
+    }
+
 }
 
-module.exports = { auth };
+
+module.exports = { authUser }

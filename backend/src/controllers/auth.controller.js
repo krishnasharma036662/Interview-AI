@@ -1,127 +1,151 @@
-const usermodel = require('../models/user.model');
-const Blacklist = require('../models/blacklist.model');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const userModel = require("../models/user.model")
+const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
+const tokenBlacklistModel = require("../models/blacklist.model")
 
-/** 
- * @name Register a new user
- * @description register a new user with name, email and password
+/**
+ * @name registerUserController
+ * @description register a new user, expects username, email and password in the request body
  * @access Public
  */
-async function register(req, res) {
-  try {
+async function registerUserController(req, res) {
 
-    const { name, email, password } = req.body;  
+    const { username, email, password } = req.body
 
-    if(!name || !email || !password) {
-      return res.status(400).json({ msg: 'Please enter all fields' });
+    if (!username || !email || !password) {
+        return res.status(400).json({
+            message: "Please provide username, email and password"
+        })
     }
 
-    let user = await usermodel.findOne({
-      $or: [{ name }, { email }]
-    });
+    const isUserAlreadyExists = await userModel.findOne({
+        $or: [ { username }, { email } ]
+    })
 
-    if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
+    if (isUserAlreadyExists) {
+        return res.status(400).json({
+            message: "Account already exists with this email address or username"
+        })
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 10)
 
-    user = new usermodel({ name, email, password: hash });
+    const user = await userModel.create({
+        username,
+        email,
+        password: hash
+    })
 
     const token = jwt.sign(
-      { id: user._id },
-      process.env.jwt_secret,
-      { expiresIn: '1h' }
-    );
+        { id: user._id, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+    )
 
-    res.cookie('token', token);
+    res.cookie("token", token)
 
-    await user.save();
 
-    res.status(201).json({ msg: 'User registered successfully', token });
+    res.status(201).json({
+        message: "User registered successfully",
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email
+        }
+    })
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ msg: 'Server error' });
-  }
 }
 
-/** 
- * @name login  user
- * @description login a user with email and password
+
+/**
+ * @name loginUserController
+ * @description login a user, expects email and password in the request body
  * @access Public
  */
+async function loginUserController(req, res) {
 
-const login = async (req, res) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body
 
-  try {
-    const user = await usermodel.findOne({ email });
+    const user = await userModel.findOne({ email })
+
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+        return res.status(400).json({
+            message: "Invalid email or password"
+        })
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+
+    if (!isPasswordValid) {
+        return res.status(400).json({
+            message: "Invalid email or password"
+        })
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.jwt_secret, { expiresIn: '1h' });
-    res.cookie('token', token);
-    res.status(200).json({ msg: 'User logged in successfully', token });
-  } catch (error) {
-    console.error('Error logging in user:', error);
-    res.status(500).json({ msg: 'Server error' });
-  }
-};
+    const token = jwt.sign(
+        { id: user._id, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+    )
 
-/**
- * @name logout user
- * @description logout a user by blacklisting the token
- * @access Private
- */
-const logout = async (req, res) => {
-  const token = req.cookies.token;
-  if (!token) {
-    return res.status(400).json({ msg: 'No token provided' });
-  }
-
-  try {
-    // Blacklist the token
-    await Blacklist.create({ token });
-    res.clearCookie('token');
-    res.status(200).json({ msg: 'User logged out successfully' });
-  } catch (error) {
-    console.error('Error logging out user:', error);
-    res.status(500).json({ msg: 'Server error' });
-  }
-};
+    res.cookie("token", token)
+    res.status(200).json({
+        message: "User loggedIn successfully.",
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email
+        }
+    })
+}
 
 
 /**
- * @name get current user
- * @description get the current logged in user
- * @access Private
+ * @name logoutUserController
+ * @description clear token from user cookie and add the token in blacklist
+ * @access public
  */
+async function logoutUserController(req, res) {
+    const token = req.cookies.token
 
-const getCurrentUser = async (req, res) => {
-  try {
-    const user = await usermodel.findById(req.user.id).select('-password');
-    res.status(200).json({user:{
-        id: user._id,
-        name: user.name,
-        email: user.email
-    }});
-  } catch (error) {
-    console.error('Error fetching current user:', error);
-    res.status(500).json({ msg: 'Server error' });
-  }
-};
+    if (token) {
+        await tokenBlacklistModel.create({ token })
+    }
+
+    res.clearCookie("token")
+
+    res.status(200).json({
+        message: "User logged out successfully"
+    })
+}
+
+/**
+ * @name getMeController
+ * @description get the current logged in user details.
+ * @access private
+ */
+async function getMeController(req, res) {
+
+    const user = await userModel.findById(req.user.id)
+
+
+
+    res.status(200).json({
+        message: "User details fetched successfully",
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email
+        }
+    })
+
+}
+
+
 
 module.exports = {
-  register,
-  login,
-  logout,
-  getCurrentUser,
-};
+    registerUserController,
+    loginUserController,
+    logoutUserController,
+    getMeController
+}
